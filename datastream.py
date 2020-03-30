@@ -31,6 +31,43 @@ class ArrayAsLine(DataStream):
         if not self.genome_window.top_positive: # data needs to be reversed, as genome view has been reversed 
             plot_data = np.flip(plot_data)
         # now plot the line
-        self.axis.plot(self.genome_window.x_array, plot_data, rasterized=True, **kwargs)
+        self.axis.plot(self.genome_window.x_array, plot_data, rasterized=self.rasterize_data, **kwargs)
+        # call DataStream's plotdata function to do final plot clean up, remaining kwargs are passed
+        DataStream.plotdata(self, **kwargs)
+
+class MotifArrows(DataStream):
+    # plot a numpy array (2 x len(genome)) or len(genome) as a line
+    def plotdata(self, input_data, **kwargs):
+        # determine left and right based on lengths: [[strand ->], [positions (left) ->], [lengths ->], [scores (y-values) ->]]
+        strands, left_positions, lengths, scores = input_data
+        right_positions = left_positions + lengths - 1
+        # determine which inputs fall into current window
+        plot_mask = np.all([self.genome_window.window_right >= left_positions, self.genome_window.window_left <= right_positions], axis=0)
+        # pare down data set to only those we're plotting, convert into plot coordinates
+        strands = strands[plot_mask]
+        left_positions = self.genome_window._genometoplotposition(left_positions[plot_mask])
+        right_positions = self.genome_window._genometoplotposition(right_positions[plot_mask])
+        scores = scores[plot_mask]
+        # rescale ylimits based on scores
+        ydelta = np.max(scores) - np.min(scores)
+        yrange = [np.min(scores)-ydelta*.25,np.max(scores)+ydelta*.25]
+        self.axis.set_ylim(yrange)
+        # check if kwargs has arrowprops
+        try:
+            arrowprops = kwargs.pop('arrowprops')
+        except KeyError:
+            arrowprops = {'width':3,'headwidth':8,'headlength':8,'facecolor':'k','edgecolor':None}
+        # now plot motifs as arrows
+        for st,l,r,sc in zip(strands, left_positions, right_positions, scores):
+            if self.genome_window.top_positive:
+                if st == 0: # right is arrow end
+                    self.axis.annotate('', xy=[r,sc], xytext=[l,sc], arrowprops=arrowprops, **kwargs)
+                else: # left is arrow end
+                    self.axis.annotate('', xy=[l,sc], xytext=[r,sc], arrowprops=arrowprops, **kwargs)
+            else:
+                if st == 0: # left is arrow end
+                    self.axis.annotate('', xy=[l,sc], xytext=[r,sc], arrowprops=arrowprops, **kwargs)
+                else: # right is arrow end
+                    self.axis.annotate('', xy=[r,sc], xytext=[l,sc], arrowprops=arrowprops, **kwargs)
         # call DataStream's plotdata function to do final plot clean up, remaining kwargs are passed
         DataStream.plotdata(self, **kwargs)

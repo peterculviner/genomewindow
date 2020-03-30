@@ -1,5 +1,6 @@
 import numpy as np
 import genomewindow as gw
+import matplotlib.pyplot as plt
 
 class GenomeWindow():
     def setpositionbygene(self, name = None, nt_spacer = 0, nt_5 = 0, nt_3 = 0, swap_strand = False, verbose = True):
@@ -26,8 +27,21 @@ class GenomeWindow():
             self.window_left = start - nt_3 - nt_spacer
         self._setx()
     
-    def setpositionbycoordinates(self, coordinates = None, strand = None):
-        pass
+    def setpositionbycoordinates(self, coordinates = None, zero = None, strand = None):
+        if strand == 0:
+            self.top_positive = True
+        elif strand == 1:
+            self.top_positive = False
+        else:
+            raise(ValueError('strand should be 0 or 1.'))
+        self.window_left = coordinates[0]
+        self.window_right = coordinates[1]
+        if zero is None:
+            self.window_zero = coordinates[0]
+        else:
+            self.window_zero = zero
+        print('window zero at %i, window is not reversed: %s'%(self.window_zero, self.top_positive))
+        self._setx()
     
     def plotdatastreams(self, **kwargs):
         """ Description.
@@ -78,6 +92,12 @@ class GenomeWindow():
             self.ax_sequence.set_xlim(self.x_array[0],self.x_array[-1])
             self.ax_sequence.set_ylim(-1.5,1.5)
             self.sequence_track.drawnucleotides()
+
+    def _genometoplotposition(self, position):
+        if self.top_positive:
+            return position - self.window_zero
+        else:
+            return -1*(position - self.window_zero)
     
     def __init__(self, gene_table = None, genome = None, axes_heights = None, fig_width = 4, show_sequence = True,
                        gene_track = gw.DoubleStrandGeneTrack, gene_track_kwargs = {},
@@ -104,10 +124,16 @@ class GenomeWindow():
         self.gene_track = gene_track(genome_window = self, **gene_track_kwargs)
         self.figure = fig
         # remove ticks for all but last data axis, remove top and right spines for all data axes
-        [(ax.spines['top'].set_visible(False), ax.spines['right'].set_visible(False), plt.setp(ax.get_xticklabels(),visible=False)) for ax in self.axesdata[:-1]]
-        (self.axesdata[-1].spines['top'].set_visible(False), self.axesdata[-1].spines['right'].set_visible(False))
-        # for gene axis and sequence axis remove everything
-        (self.ax_genes.set_frame_on(False), self.ax_genes.axes.get_xaxis().set_visible(False), self.ax_genes.axes.get_yaxis().set_visible(False))
+        try:
+            [(ax.spines['top'].set_visible(False), ax.spines['right'].set_visible(False), plt.setp(ax.get_xticklabels(),visible=False)) for ax in self.axesdata[:-1]]
+            (self.axesdata[-1].spines['top'].set_visible(False), self.axesdata[-1].spines['right'].set_visible(False))
+            # for gene axis and sequence axis remove everything
+            (self.ax_genes.set_frame_on(False), self.ax_genes.axes.get_xaxis().set_visible(False), self.ax_genes.axes.get_yaxis().set_visible(False))
+        except IndexError:
+            # no data axes provided - this is fine
+            (self.ax_genes.axes.get_yaxis().set_visible(False))
+            [self.ax_genes.spines[f].set_visible(False) for f in ['left','right','top']]
+        
         if self.ax_sequence is not None:
             (self.ax_sequence.set_frame_on(False), self.ax_sequence.axes.get_xaxis().set_visible(False), self.ax_sequence.axes.get_yaxis().set_visible(False))
         # pad labels
