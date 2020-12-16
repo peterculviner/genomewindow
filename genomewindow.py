@@ -25,9 +25,11 @@ class GenomeWindow():
             self.window_zero = end
             self.window_right = end + nt_5 + nt_spacer
             self.window_left = start - nt_3 - nt_spacer
+        if verbose:
+            print('window zero at %i, window is not reversed: %s'%(self.window_zero, self.top_positive))
         self._setx()
     
-    def setpositionbycoordinates(self, coordinates = None, zero = None, strand = None):
+    def setpositionbycoordinates(self, coordinates = None, zero = None, strand = None, verbose = True):
         if strand == 0:
             self.top_positive = True
         elif strand == 1:
@@ -40,7 +42,8 @@ class GenomeWindow():
             self.window_zero = coordinates[0]
         else:
             self.window_zero = zero
-        print('window zero at %i, window is not reversed: %s'%(self.window_zero, self.top_positive))
+        if verbose:
+            print('window zero at %i, window_zero is not reversed: %s'%(self.window_zero, self.top_positive))
         self._setx()
     
     def plotdatastreams(self, **kwargs):
@@ -99,16 +102,19 @@ class GenomeWindow():
         else:
             return -1*(position - self.window_zero)
     
-    def __init__(self, gene_table = None, genome = None, axes_heights = None, fig_width = 4, show_sequence = True,
+    def __init__(self, gene_table = None, genome = None, axes_heights = None, fig_width = 4, show_sequence = False,
                        gene_track = gw.DoubleStrandGeneTrack, gene_track_kwargs = {},
                        sequence_track = gw.SequenceTrack, sequence_track_kwargs = {},
-                       coordinate_columns = ['strand', 'start', 'end'], gene_name_column = 'plt_tag', vpad=.15):
+                       coordinate_columns = ['strand', 'start', 'end'], gene_name_column = None, vpad=.15):
         # store important variables for object function
         self.gene_table = gene_table
-        self.gene_names = gene_table.loc[:,gene_name_column].values
         self.gene_regions = gene_table.loc[:,coordinate_columns].values.astype(int)
         self.top_positive = None # True if target strand is positive strand, define later based on position of plot
         self.genome = genome
+        if gene_name_column is None: # if a column with gene names is not provided, use the gene_table index
+            self.gene_names = gene_table.index 
+        else:
+            self.gene_names = gene_table.loc[:,gene_name_column].values
         # generate figure and axes based on above parameters
         fig, all_axes = gw.verticalplots(axes_heights, fig_width, vpad = vpad)
         if show_sequence:

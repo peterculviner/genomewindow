@@ -11,6 +11,7 @@ class DoubleStrandGeneTrack():
         self.gene_patches = []
         for name, region in zip(self.overlapping_names, self.overlapping_regions):
             strand, start, end = region
+            name = str(name)
             if self.genome_window.top_positive is True:
                 gene_direction = 'right'
                 y_extents = [.05, .95]

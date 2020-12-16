@@ -37,7 +37,7 @@ class ArrayAsLine(DataStream):
 
 class MotifArrows(DataStream):
     # plot a numpy array (2 x len(genome)) or len(genome) as a line
-    def plotdata(self, input_data, **kwargs):
+    def plotdata(self, input_data, autoscale = False, **kwargs):
         # determine left and right based on lengths: [[strand ->], [positions (left) ->], [lengths ->], [scores (y-values) ->]]
         strands, left_positions, lengths, scores = input_data
         right_positions = left_positions + lengths - 1
@@ -48,10 +48,11 @@ class MotifArrows(DataStream):
         left_positions = self.genome_window._genometoplotposition(left_positions[plot_mask])
         right_positions = self.genome_window._genometoplotposition(right_positions[plot_mask])
         scores = scores[plot_mask]
-        # rescale ylimits based on scores
-        ydelta = np.max(scores) - np.min(scores)
-        yrange = [np.min(scores)-ydelta*.25,np.max(scores)+ydelta*.25]
-        self.axis.set_ylim(yrange)
+        if autoscale == True:
+            # rescale ylimits based on scores
+            ydelta = np.max(scores) - np.min(scores)
+            yrange = [np.min(scores)-ydelta*.25,np.max(scores)+ydelta*.25]
+            self.axis.set_ylim(yrange)
         # check if kwargs has arrowprops
         try:
             arrowprops = kwargs.pop('arrowprops')
@@ -59,15 +60,45 @@ class MotifArrows(DataStream):
             arrowprops = {'width':3,'headwidth':8,'headlength':8,'facecolor':'k','edgecolor':None}
         # now plot motifs as arrows
         for st,l,r,sc in zip(strands, left_positions, right_positions, scores):
-            if self.genome_window.top_positive:
-                if st == 0: # right is arrow end
-                    self.axis.annotate('', xy=[r,sc], xytext=[l,sc], arrowprops=arrowprops, **kwargs)
-                else: # left is arrow end
-                    self.axis.annotate('', xy=[l,sc], xytext=[r,sc], arrowprops=arrowprops, **kwargs)
-            else:
-                if st == 0: # left is arrow end
-                    self.axis.annotate('', xy=[l,sc], xytext=[r,sc], arrowprops=arrowprops, **kwargs)
-                else: # right is arrow end
-                    self.axis.annotate('', xy=[r,sc], xytext=[l,sc], arrowprops=arrowprops, **kwargs)
+            # if self.genome_window.top_positive:
+            if st == 0: # right is arrow end
+                self.axis.annotate('', xy=[r,sc], xytext=[l,sc], arrowprops=arrowprops, **kwargs)
+            else: # left is arrow end
+                self.axis.annotate('', xy=[l,sc], xytext=[r,sc], arrowprops=arrowprops, **kwargs)
+            # else:
+            #     if st == 0: # left is arrow end
+            #         self.axis.annotate('', xy=[l,sc], xytext=[r,sc], arrowprops=arrowprops, **kwargs)
+            #     else: # right is arrow end
+            #         self.axis.annotate('', xy=[r,sc], xytext=[l,sc], arrowprops=arrowprops, **kwargs)
+        # call DataStream's plotdata function to do final plot clean up, remaining kwargs are passed
+        DataStream.plotdata(self, **kwargs)
+
+class LocalMotifHatch(DataStream):
+    # plot a numpy array (2 x len(genome)) or len(genome) as a line
+    def plotdata(self, input_data, autoscale = False, **kwargs):
+        # determine left and right based on lengths: [[strand ->], [positions (left) ->], [lengths ->], [scores (y-values) ->]]
+        strands, left_positions, lengths, scores = input_data
+        # call DataStream's plotdata function to do final plot clean up, remaining kwargs are passed
+        DataStream.plotdata(self, **kwargs)
+
+class ShadeRegions(DataStream):
+    # plot a numpy array (2 x len(genome)) or len(genome) as a line
+    def plotdata(self, input_data, intype = 'ss', color='k', alpha=.25,  **kwargs):
+        if intype is 'ss':
+            # identify overlapping regions from the input
+            overlap_i = np.where(np.all([self.genome_window.window_left <= input_data[:,1],
+                                         self.genome_window.window_right >= input_data[:,0]],axis=0))
+            overlapping_regions = input_data[overlap_i]
+            # update coordinates from genomic to plot
+            left_positions = self.genome_window._genometoplotposition(overlapping_regions[:,0])
+            right_positions = self.genome_window._genometoplotposition(overlapping_regions[:,1])
+            for l,r in zip(left_positions, right_positions):
+                # fill between defined by where function
+                self.axis.fill_between(self.genome_window.x_array, self.axis.get_ylim()[0],self.axis.get_ylim()[1],
+                                                     where=np.all([self.genome_window.x_array >= np.min([l,r]), 
+                                                                   self.genome_window.x_array <= np.max([l,r])], axis=0),
+                                                     linewidth=0, color=color, alpha=alpha, **kwargs)
+        else:
+            raise(ValueError('only ss regions supported right now (shape: (n_regions, 2))'))
         # call DataStream's plotdata function to do final plot clean up, remaining kwargs are passed
         DataStream.plotdata(self, **kwargs)
